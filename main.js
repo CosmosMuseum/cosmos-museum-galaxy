@@ -6,6 +6,9 @@ const fragmentShader = `
 
     uniform float iTime;
     uniform vec2 iResolution;
+    uniform vec3 uCamPos;
+    uniform vec3 uCamTarget;
+    uniform float uCamRoll;
 
     #define SCREEN_EFFECT 0
 
@@ -67,10 +70,10 @@ const fragmentShader = `
         float fade2= max(0., time-10.)*0.37;
         float glow = max(-.25,1.+pow(fade2, 10.) - 0.001*pow(fade2, 25.));
 
-        vec3 campos = vec3(500.0, 850., -.0-cos((time-1.4)/2.)*2000.);
-        vec3 camtar = vec3(0., 0., 0.);
+        vec3 campos = uCamPos;
+        vec3 camtar = uCamTarget;
 
-        float roll = 0.34;
+        float roll = uCamRoll;
         vec3 cw = normalize(camtar-campos);
         vec3 cp = vec3(sin(roll), cos(roll),0.0);
         vec3 cu = normalize(cross(cw,cp));
@@ -205,22 +208,30 @@ const fragmentShader = `
 `;
 
 const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+camera.position.set(500, 850, 1800);
+camera.lookAt(0, 0, 0);
+
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.enableZoom = true;
 controls.enableRotate = true;
 controls.enablePan = true;
+controls.update();
 
 const uniforms = {
     iTime: { value: 0 },
-    iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+    iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    uCamPos: { value: camera.position.clone() },
+    uCamTarget: { value: controls.target.clone() },
+    uCamRoll: { value: 0.34 }
 };
 
 const material = new THREE.ShaderMaterial({
@@ -240,6 +251,8 @@ const mesh = new THREE.Mesh(geo, material);
 scene.add(mesh);
 
 window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     uniforms.iResolution.value.set(window.innerWidth, window.innerHeight);
 });
@@ -249,6 +262,8 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     uniforms.iTime.value = clock.getElapsedTime();
+    uniforms.uCamPos.value.copy(camera.position);
+    uniforms.uCamTarget.value.copy(controls.target);
     renderer.render(scene, camera);
 }
 animate();
